@@ -1,0 +1,7 @@
+{
+ "_comment" : "User Stats",
+ "startingStamina" : 25,
+ "startingMaxStamina" : 25,
+ "_comment" : "Game Settings",
+ "staminaRechargeRate" : 180000
+}

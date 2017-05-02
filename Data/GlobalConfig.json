@@ -1,9 +1,4 @@
 {
-	"prefix" : "%",
-	"statsUI" : {
-					"embed" : {
-								"color" : 3447003,
-								"description" : "A very simple Embed!\nTest json\nJacky likes ochinchin\nBattle Programmer Leon\nHI DENNIS"
-					          }
-	            }
+	"saveInterval" : 1000,
+	"prefix" : "%"
 }
