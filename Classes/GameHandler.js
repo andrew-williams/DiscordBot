@@ -1,5 +1,6 @@
 const fs = require("fs");
 const PATH = './DATA/UserData.json';
+const STATSHANDLER = require("./PlayerStatsHandler.js");
 var gameConfig = null;
 var uiConfig = null;
 
@@ -7,92 +8,50 @@ class GameHandler {
 	constructor(){
 		// Declaring variables
 		this.data = null;
-		this.globalConfig = null;
 		this.triggerSave = false;
+		this.globalConfig = null;
 		gameConfig = JSON.parse(fs.readFileSync("./Data/GameConfig.json", 'utf8'));
 		uiConfig = JSON.parse(fs.readFileSync("./Data/UIConfig.json", 'utf8'));
 	}
 	
 	Init(globalConfig){
-		console.log("********** Initializing Game Handler.js **********");
-		// Assign global configuration
 		this.globalConfig = globalConfig;
-		// Assigning the points to the json file.
-		this.data = JSON.parse(fs.readFileSync(PATH, 'utf8'));
-		console.log("********** GameHandler.js Init Complete **********")
+		STATSHANDLER.Init();
 	}
 	
-	UpdateUserData(message){
-		// if the user data don't exist, create user data
-		if (!this.data[message.author.id]) this.data[message.author.id] = {
-			points: 0,
-			level: 0,
-			timestampOfLastAction: 0,
-			//game stuff
-			stamina: gameConfig.startingStamina,
-			maxStamina: gameConfig.startingMaxStamina,
-			// Stamina recharge data
-			allowStaminaRegen: false, // True to allow regeneration, only when stamina is not full.
-			staminaRegenStartTimestamp: 0 // The start time of when the allowStaminaRegen flag being set to true.
-		}
-		else {}
-	}
-	
-	// Function To Set New Game Configuration
-	RefreshConfig(config){
-		this.globalConfig = config;
-	}
-	RefreshUserData(){
-		this.data = JSON.parse(fs.readFileSync(PATH, 'utf8'));
-	}
-	
-	// Function to display user statistics.
-	Stats(message){
-		let userData = this.data[message.author.id];
-		var stringUI = JSON.stringify(uiConfig.statsUI);
-		var stringUIReplace = stringUI.replace(".username.", message.author.username).replace(".stamina.", userData.stamina).replace(".maxStamina.", userData.maxStamina);
-		var jsonUI = JSON.parse(stringUIReplace);
-		message.channel.sendMessage(jsonUI)
-	}
-	
-	TestAction(message, timestamp){
-		// Check user data
-		this.UpdateUserData(message);
-		// Check for stamina regen.
-		this.CheckForStaminaRegen(message, timestamp);
-		// Check if we have the required stamina
-		var hasRequiredStamina = (this.CheckRequiredStamina(message, 5));
-		let userData = this.data[message.author.id];
-		if (hasRequiredStamina){
-			message.channel.sendMessage("You Spent 5 Energy To Do A Test Action! You Now Have 【"+userData.stamina+"／"+userData.maxStamina+"】 Stamina.");
+	SanityCheck(message, timestamp){
+		// Check user data exists
+		if (STATSHANDLER.CheckIfUserExists(message.author.id) == true){
+			// Do any actions that need to be checked every time...
+			// Check for stamina regen.
+			this.CheckForStaminaRegen(message, timestamp);		
+			return true;
 		}
 		else{
-			message.channel.sendMessage("You do not have enough stamina to perform this action! You need 5 Stamina To Do A Test Action! You Have 【"+userData.stamina+"／"+userData.maxStamina+"】 Stamina.");
+			message.channel.sendMessage("Character '"+message.author.username+"' does not exist. Please create a new character by typing '"+this.globalConfig.prefix+"newgame'");
+			return false;
 		}
 	}
 	
 	CheckForStaminaRegen(message, timestamp){
-		let userData = this.data[message.author.id];
 		// Check if user has regeneration active.
-		if (userData.allowStaminaRegen == true){
+		if (STATSHANDLER.GetStat(message.author.id, "allowStaminaRegen") == true){
 			// We have regen. Get difference between now and when the regen was started. In milliseconds.
-			var difference = message.createdTimestamp - userData.staminaRegenStartTimestamp;
+			var difference = message.createdTimestamp - STATSHANDLER.GetStat(message.author.id, "staminaRegenStartTimestamp");
 			// If the difference is greater than recharge rate, recharge based on time.
 			if (difference >= gameConfig.staminaRechargeRate){
 				// Check how much we need to recharge.
 				var staminaGain = Math.floor(difference / gameConfig.staminaRechargeRate)
 				var timeRemainder = difference % gameConfig.staminaRechargeRate;
 				// Recharge stamina by the difference.
-				userData.stamina = userData.stamina + staminaGain;
+				STATSHANDLER.AddStat(message.author.id, "stamina", staminaGain);
 				// Now if stamina reaches max, end regeneration and cap.
-				if (userData.stamina > userData.maxStamina){
-					userData.stamina = userData.maxStamina;
-					userData.allowStaminaRegen = false;
+				if (STATSHANDLER.CheckForStatCap(message.author.id, "stamina", "maxStamina") == true){
+					// We capped. disable regen
+					STATSHANDLER.SetStat(message.author.id, "allowStaminaRegen", false);
 				}
 				// Update regen timestamp so we no longer use old values to calculate the remaining stamina but add back on the unused time.
-				userData.staminaRegenStartTimestamp = message.createdTimestamp - timeRemainder;
-				// Trigger save to happen as the user data has changed and is ready to be saved to disk.
-				this.SetTriggerSave(true);
+				STATSHANDLER.SetStat(message.author.id, "staminaRegenStartTimestamp", (message.createdTimestamp - timeRemainder));
 			}
 		}
 	}
@@ -100,13 +59,11 @@ class GameHandler {
 	// This function checks if the user has the required stamina and will return true if there is enough after consuming stamina.
 	// Every action will require stamina and therfore if it is true, the action will run. 
 	CheckRequiredStamina(message, staminaRequired){
-		let userData = this.data[message.author.id];
-		if (userData.stamina >= staminaRequired){
+		if (STATSHANDLER.GetStat(message.author.id, "stamina") >= staminaRequired){
 			// Action will run. Trigger regeneration if stamina is no longer full.
 			this.TriggerStaminaRegen(message);
-			userData.timestampOfLastAction = message.createdTimestamp;
-			userData.stamina = userData.stamina - staminaRequired;
-			this.SetTriggerSave(true);
+			STATSHANDLER.SetStat(message.author.id, "timestampOfLastAction", message.createdTimestamp);
+			STATSHANDLER.RemoveStat(message.author.id, "stamina", staminaRequired);
 			return true;
 		}
 		else{
@@ -116,33 +73,88 @@ class GameHandler {
 	
 	// This function will trigger the stamina regeneration for the current user.
 	TriggerStaminaRegen(message){
-		let userData = this.data[message.author.id];
 		// If energy is full, we must log the time this switch was flipped.
-		if (userData.allowStaminaRegen == false){
-			userData.staminaRegenStartTimestamp = message.createdTimestamp;
+		if (STATSHANDLER.GetStat(message.author.id, "allowStaminaRegen") == false){
+			STATSHANDLER.SetStat(message.author.id, "staminaRegenStartTimestamp", message.createdTimestamp);
 		}
-		userData.allowStaminaRegen = true;
+		STATSHANDLER.SetStat(message.author.id, "allowStaminaRegen", true);
 	
 	}
 	
-	Write(){
-		// And then, we save the edited file.
-		fs.writeFile(PATH, JSON.stringify(this.data), (err) => {
-			if (err){
-				console.error(err);
-			} 
-			else{
-				console.log("Write To File Success");
-			}
-		});
-	}
+	// STATS HANDLER CLASS STUFF
 	
 	GetTriggerSave(){
-		return this.triggerSave;
+		return STATSHANDLER.GetTriggerSave();
 	}
 	
 	SetTriggerSave(trigger){
-		this.triggerSave =  trigger;
+		STATSHANDLER.SetTriggerSave(trigger);
+	}
+	
+	Write(){
+		STATSHANDLER.Write();
+	}
+	
+	// GAME COMMANDS
+	// This command is to create a character.
+	CreateNewCharacter(message, timestamp){
+		if (STATSHANDLER.CheckIfUserExists(message.author.id) == true){
+			message.channel.sendMessage("Character '"+message.author.username+"' already exists.");
+		}
+		else{
+			message.channel.sendMessage("Character '"+message.author.username+"' created You can now start your adventure!");
+			STATSHANDLER.CreateNewUser(message.author.id, timestamp);
+		}
+	}
+	
+	DisplayGameCommands(message){
+		var stringUI = "";
+		stringUI += "```\n";
+		stringUI += "████████████████████████████████████████\n            ＣＯＭＭＡＮＤＳ\n████████████████████████████████████████\n\n";
+		stringUI += this.globalConfig.prefix + "commands : Show this menu.\n";
+		stringUI += this.globalConfig.prefix + "newgame  : Start a new character if does not exist.\n";
+		stringUI += this.globalConfig.prefix + "stats    : Show player statistics.";
+		stringUI += "```";
+		message.channel.sendMessage(stringUI);
+	}
+	
+	// Function to display user statistics.
+	Stats(message, timestamp){
+		if (this.SanityCheck(message, timestamp) == true){
+			var stringUI = "{\"embed\": { \"description\" : \"";
+			stringUI += "░▒▒▓▓▓████████████████████████████████████████████████████████████████████████████████▓▓▓▒▒░\\n";
+			stringUI += "Name : " + message.author.username + "\\n";
+			stringUI += "Health : 【" + STATSHANDLER.GetStat(message.author.id,"health")+"／"+STATSHANDLER.GetStat(message.author.id,"maxHealth")+"】 - Mana : 【" + STATSHANDLER.GetStat(message.author.id,"mana") + "／"+STATSHANDLER.GetStat(message.author.id,"maxMana")+"】 - Stamina : 【" + STATSHANDLER.GetStat(message.author.id,"stamina") + "／"+STATSHANDLER.GetStat(message.author.id,"maxStamina")+"】\\n";
+			stringUI += "Inventory : 【"+ STATSHANDLER.GetStat(message.author.id,"inventorySpace")+"／"+STATSHANDLER.GetStat(message.author.id,"maxInventorySpace")+"】\\n";
+			stringUI += "Agility : " + STATSHANDLER.GetStat(message.author.id,"agility") + "\\n"
+			stringUI += "Charisma : " + STATSHANDLER.GetStat(message.author.id,"charisma") + "\\n"
+			stringUI += "Constitution : " + STATSHANDLER.GetStat(message.author.id,"constitution") + "\\n"
+			stringUI += "Dexterity : " + STATSHANDLER.GetStat(message.author.id,"dexterity") + "\\n"
+			stringUI += "Endurance : " + STATSHANDLER.GetStat(message.author.id,"endurance") + "\\n"
+			stringUI += "Insight : " + STATSHANDLER.GetStat(message.author.id,"insight") + "\\n"
+			stringUI += "Intelligence : " + STATSHANDLER.GetStat(message.author.id,"intelligence") + "\\n"
+			stringUI += "Luck : " + STATSHANDLER.GetStat(message.author.id,"luck") + "\\n"
+			stringUI += "Strength : " + STATSHANDLER.GetStat(message.author.id,"strength") + "\\n"
+			stringUI += "Vitality : " + STATSHANDLER.GetStat(message.author.id,"vitality") + "\\n"
+			stringUI += "░▒▒▓▓▓████████████████████████████████████████████████████████████████████████████████▓▓▓▒▒░";
+			stringUI += "\"}}";
+			console.log(stringUI);
+			var jsonUI = JSON.parse(stringUI);
+			message.channel.sendMessage(jsonUI)
+		}
+	}
+	
+	TestAction(message, timestamp){
+		if (this.SanityCheck(message, timestamp) == true){
+			// Check if we have the required stamina
+			var hasRequiredStamina = (this.CheckRequiredStamina(message, 5));
+			if (hasRequiredStamina){
+				message.channel.sendMessage("You Spent 5 Energy To Do A Test Action! You Now Have 【"+STATSHANDLER.GetStat(message.author.id, "stamina")+"／"+STATSHANDLER.GetStat(message.author.id, "maxStamina")+"】 Stamina.");
+			}
+			else{
+				message.channel.sendMessage("You do not have enough stamina to perform this action! You need 5 Stamina To Do A Test Action! You Have 【"+STATSHANDLER.GetStat(message.author.id, "stamina")+"／"+STATSHANDLER.GetStat(message.author.id, "maxStamina")+"】 Stamina.");
+			}
+		}
 	}
 	
 	// Old functions

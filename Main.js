@@ -71,6 +71,12 @@ class Main {
 			}
 			// FINAL COMMANDS
 			// This command will check the player stats.
+			else if (message.content.startsWith(this.globalConfig.prefix + "commands")){
+				GAMEHANDLER.DisplayGameCommands(message);
+			}
+			else if (message.content.startsWith(this.globalConfig.prefix + "newgame")){
+				GAMEHANDLER.CreateNewCharacter(message, this.client.uptime);
+			}
 			else if (message.content.startsWith(this.globalConfig.prefix + "stats")){
 				GAMEHANDLER.Stats(message);
 			}
