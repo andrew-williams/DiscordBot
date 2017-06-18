@@ -17,7 +17,7 @@ class PlayerStatsHandler {
 	
 	Write(){
 		// And then, we save the edited file.
-		fs.writeFile(PATH, JSON.stringify(this.data), (err) => {
+		fs.writeFile(PATH, JSON.stringify(this.data, null, 2), (err) => {
 			if (err){
 				console.error(err);
 			} 
@@ -81,6 +81,44 @@ class PlayerStatsHandler {
 		}
 	}
 	
+	GetRandomFromRange(statName){
+		var min = this.gameConfig[statName + "_base_exp_gain_min"];
+		var max = this.gameConfig[statName + "_base_exp_gain_max"];
+		var result = Math.ceil((Math.random() * (max - min)) + min);
+		return result;
+	}
+	
+	CheckIfLevelUp(userid, statName, statNameExp, statNameExpToLevel){
+		let userData = this.data[userid];
+		if ((userData[statNameExp] >= userData[statNameExpToLevel]) && (userData[statNameExpToLevel] != 0)){
+			var remainder = userData[statNameExp] - userData[statNameExpToLevel];
+			userData[statNameExp] = remainder;
+			// old = 0.04, new = 0.25
+			var oldBase = userData[statNameExpToLevel];
+			var nextLevel = Math.ceil((oldBase * 0.25) + oldBase);
+			userData[statNameExpToLevel] = nextLevel;
+			userData[statName] = userData[statName] + 1;
+			this.SetTriggerSave(true);
+			return true;
+		}
+		else{
+			return false;
+		}
+	}
+	
+	PrintLevelUpMessage(message, statNameArray){
+		let userData = this.data[message.author.id];
+		var messageToPrint = "Congratulations! You levelled ";
+		for (var i = 0; i < statNameArray.length; i++) { 
+			var statname = statNameArray[i];
+			if (i > 0){
+				messageToPrint += ", ";
+			}
+			messageToPrint += statname + " to " + userData[statname.toLowerCase()];
+		}
+		message.channel.sendMessage(messageToPrint);
+	}
+	
 	CreateNewUser(userid, timestamp){
 		/*this.data[userid] = {
 			// util
@@ -110,7 +148,7 @@ class PlayerStatsHandler {
 		// Assign other stats based on the base stats
 		template["agilityExpNext"] = this.gameConfig["base_exp_to_level"];
 		template["charismaExpNext"] = this.gameConfig["base_exp_to_level"];
-		template["constructionExpNext"] = this.gameConfig["base_exp_to_level"];
+		template["constitutionExpNext"] = this.gameConfig["base_exp_to_level"];
 		template["dexterityExpNext"] = this.gameConfig["base_exp_to_level"];
 		template["enduranceExpNext"] = this.gameConfig["base_exp_to_level"];
 		template["insightExpNext"] = this.gameConfig["base_exp_to_level"];

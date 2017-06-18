@@ -1,0 +1,9 @@
+{
+  "_comment" : "ItemId  followed by the item data",
+  "0" : {
+    "name" : "TestItem"
+  },
+  "1" : {
+    "name" : "null rock"
+  }
+}

@@ -1,22 +1,27 @@
 const fs = require("fs");
 const PATH = './DATA/UserData.json';
 const STATSHANDLER = require("./PlayerStatsHandler.js");
+const SKILLSHANDLER = require("./SkillsHandler.js");
+const INVENTORYHANDLER = require("./InventoryHandler.js");
 var gameConfig = null;
 var uiConfig = null;
+var itemConfig = null;
 
 class GameHandler {
 	constructor(){
 		// Declaring variables
 		this.data = null;
-		this.triggerSave = false;
 		this.globalConfig = null;
 		gameConfig = JSON.parse(fs.readFileSync("./Data/GameConfig.json", 'utf8'));
 		uiConfig = JSON.parse(fs.readFileSync("./Data/UIConfig.json", 'utf8'));
+		itemConfig = JSON.parse(fs.readFileSync("./Data/ItemConfig.json", 'utf8'));
 	}
 	
 	Init(globalConfig){
 		this.globalConfig = globalConfig;
+		INVENTORYHANDLER.Init(itemConfig);
 		STATSHANDLER.Init();
+		SKILLSHANDLER.Init(gameConfig, STATSHANDLER, itemConfig, INVENTORYHANDLER);
 	}
 	
 	SanityCheck(message, timestamp){
@@ -111,9 +116,17 @@ class GameHandler {
 		var stringUI = "";
 		stringUI += "```\n";
 		stringUI += "████████████████████████████████████████\n            ＣＯＭＭＡＮＤＳ\n████████████████████████████████████████\n\n";
-		stringUI += this.globalConfig.prefix + "commands : Show this menu.\n";
+		stringUI += this.globalConfig.prefix + "cmd      : Show this menu.\n";
 		stringUI += this.globalConfig.prefix + "newgame  : Start a new character if does not exist.\n";
-		stringUI += this.globalConfig.prefix + "stats    : Show player statistics.";
+		stringUI += this.globalConfig.prefix + "stats    : Show player statistics.\n";
+		stringUI += this.globalConfig.prefix + "inv      : Show player inventory.\n";
+		stringUI += "\n";
+		stringUI += this.globalConfig.prefix + "chop     : Use Woodcutting skill to cut some trees.\n";
+		stringUI += this.globalConfig.prefix + "farm     : Use Farming skill to farm some land.\n";
+		stringUI += this.globalConfig.prefix + "fish     : Use Fishing skill to catch some fish.\n";
+		stringUI += this.globalConfig.prefix + "forage   : Use Foraging skill to pick some plants.\n";
+		stringUI += this.globalConfig.prefix + "plant    : Use Planting skill to plant some seeds.\n";
+		stringUI += this.globalConfig.prefix + "mine     : Use Mining skill to mine some rocks.";
 		stringUI += "```";
 		message.channel.sendMessage(stringUI);
 	}
@@ -121,29 +134,57 @@ class GameHandler {
 	// Function to display user statistics.
 	Stats(message, timestamp){
 		if (this.SanityCheck(message, timestamp) == true){
-			var stringUI = "{\"embed\": { \"description\" : \"";
-			stringUI += "░▒▒▓▓▓████████████████████████████████████████████████████████████████████████████████▓▓▓▒▒░\\n";
-			stringUI += "Name : " + message.author.username + "\\n";
-			stringUI += "Health : 【" + STATSHANDLER.GetStat(message.author.id,"health")+"／"+STATSHANDLER.GetStat(message.author.id,"maxHealth")+"】 - Mana : 【" + STATSHANDLER.GetStat(message.author.id,"mana") + "／"+STATSHANDLER.GetStat(message.author.id,"maxMana")+"】 - Stamina : 【" + STATSHANDLER.GetStat(message.author.id,"stamina") + "／"+STATSHANDLER.GetStat(message.author.id,"maxStamina")+"】\\n";
-			stringUI += "Inventory : 【"+ STATSHANDLER.GetStat(message.author.id,"inventorySpace")+"／"+STATSHANDLER.GetStat(message.author.id,"maxInventorySpace")+"】\\n";
-			stringUI += "Agility : " + STATSHANDLER.GetStat(message.author.id,"agility") + "\\n"
-			stringUI += "Charisma : " + STATSHANDLER.GetStat(message.author.id,"charisma") + "\\n"
-			stringUI += "Constitution : " + STATSHANDLER.GetStat(message.author.id,"constitution") + "\\n"
-			stringUI += "Dexterity : " + STATSHANDLER.GetStat(message.author.id,"dexterity") + "\\n"
-			stringUI += "Endurance : " + STATSHANDLER.GetStat(message.author.id,"endurance") + "\\n"
-			stringUI += "Insight : " + STATSHANDLER.GetStat(message.author.id,"insight") + "\\n"
-			stringUI += "Intelligence : " + STATSHANDLER.GetStat(message.author.id,"intelligence") + "\\n"
-			stringUI += "Luck : " + STATSHANDLER.GetStat(message.author.id,"luck") + "\\n"
-			stringUI += "Strength : " + STATSHANDLER.GetStat(message.author.id,"strength") + "\\n"
-			stringUI += "Vitality : " + STATSHANDLER.GetStat(message.author.id,"vitality") + "\\n"
-			stringUI += "░▒▒▓▓▓████████████████████████████████████████████████████████████████████████████████▓▓▓▒▒░";
-			stringUI += "\"}}";
-			console.log(stringUI);
-			var jsonUI = JSON.parse(stringUI);
-			message.channel.sendMessage(jsonUI)
+			var stringUI = "";//"{\"embed\": { \"description\" : \"";
+			stringUI += "```\n";
+			stringUI += "████████████████████████████████████████████████████████████████████████████████████████████\n";
+			stringUI += "Name : " + message.author.username + "\n";
+			stringUI += "╞══════════════════════════════════════════════════════════════════════════════════════════╡\n"
+			stringUI += "Health       : 【" + STATSHANDLER.GetStat(message.author.id,"health")+"／"+STATSHANDLER.GetStat(message.author.id,"maxHealth")+"】- Mana : 【" + STATSHANDLER.GetStat(message.author.id,"mana") + "／"+STATSHANDLER.GetStat(message.author.id,"maxMana")+"】- Stamina : 【" + STATSHANDLER.GetStat(message.author.id,"stamina") + "／"+STATSHANDLER.GetStat(message.author.id,"maxStamina")+"】\n";
+			stringUI += "Inventory    : 【"+ STATSHANDLER.GetStat(message.author.id,"inventorySpace")+"／"+STATSHANDLER.GetStat(message.author.id,"maxInventorySpace")+"】\n";
+			stringUI += "Agility      : " + STATSHANDLER.GetStat(message.author.id,"agility") + " ≡ EXP 【"+STATSHANDLER.GetStat(message.author.id,"agilityExp")+"／"+STATSHANDLER.GetStat(message.author.id,"agilityExpNext")+"】\n"
+			stringUI += "Charisma     : " + STATSHANDLER.GetStat(message.author.id,"charisma") + " ≡ EXP 【"+STATSHANDLER.GetStat(message.author.id,"charismaExp")+"／"+STATSHANDLER.GetStat(message.author.id,"charismaExpNext")+"】\n"
+			stringUI += "Constitution : " + STATSHANDLER.GetStat(message.author.id,"constitution") + " ≡ EXP 【"+STATSHANDLER.GetStat(message.author.id,"constitutionExp")+"／"+STATSHANDLER.GetStat(message.author.id,"constitutionExpNext")+"】\n"
+			stringUI += "Dexterity    : " + STATSHANDLER.GetStat(message.author.id,"dexterity") + " ≡ EXP 【"+STATSHANDLER.GetStat(message.author.id,"dexterityExp")+"／"+STATSHANDLER.GetStat(message.author.id,"dexterityExpNext")+"】\n"
+			stringUI += "Endurance    : " + STATSHANDLER.GetStat(message.author.id,"endurance") + " ≡ EXP 【"+STATSHANDLER.GetStat(message.author.id,"enduranceExp")+"／"+STATSHANDLER.GetStat(message.author.id,"enduranceExpNext")+"】\n"
+			stringUI += "Insight      : " + STATSHANDLER.GetStat(message.author.id,"insight") + " ≡ EXP 【"+STATSHANDLER.GetStat(message.author.id,"insightExp")+"／"+STATSHANDLER.GetStat(message.author.id,"insightExpNext")+"】\n"
+			stringUI += "Intelligence : " + STATSHANDLER.GetStat(message.author.id,"intelligence") + " ≡ EXP 【"+STATSHANDLER.GetStat(message.author.id,"intelligenceExp")+"／"+STATSHANDLER.GetStat(message.author.id,"intelligenceExpNext")+"】\n"
+			stringUI += "Luck         : " + STATSHANDLER.GetStat(message.author.id,"luck") + " ≡ EXP 【"+STATSHANDLER.GetStat(message.author.id,"luckExp")+"／"+STATSHANDLER.GetStat(message.author.id,"luckExpNext")+"】\n"
+			stringUI += "Strength     : " + STATSHANDLER.GetStat(message.author.id,"strength") + " ≡ EXP 【"+STATSHANDLER.GetStat(message.author.id,"strengthExp")+"／"+STATSHANDLER.GetStat(message.author.id,"strengthExpNext")+"】\n"
+			stringUI += "Vitality     : " + STATSHANDLER.GetStat(message.author.id,"vitality") + " ≡ EXP 【"+STATSHANDLER.GetStat(message.author.id,"vitalityExp")+"／"+STATSHANDLER.GetStat(message.author.id,"vitalityExpNext")+"】\n"
+			stringUI += "████████████████████████████████████████████████████████████████████████████████████████████\n";
+			stringUI += "```";
+		//	stringUI += "\"}}";
+			//var jsonUI = JSON.parse(stringUI);
+			//message.channel.sendMessage(jsonUI)
+			message.channel.sendMessage(stringUI);
 		}
 	}
 	
+	Inv(message, timestamp){
+		if (this.SanityCheck(message, timestamp) == true){
+			var inventory = STATSHANDLER.GetStat(message.author.id, "inventory");
+			var stringUI = "";
+			stringUI += "```\n";
+			stringUI += "████████████████████████████████████████████████████████████████████████████████████████████\n";
+			for (var i in inventory){
+				stringUI += "" + INVENTORYHANDLER.GetItemData(i, "name") + " ｘ " + inventory[i] + "\n";
+			}
+			stringUI += "████████████████████████████████████████████████████████████████████████████████████████████\n";
+			stringUI += "```";
+			message.channel.sendMessage(stringUI)
+		}
+	}
+	/*
+	  var obj = validation_messages[key];
+    for (var prop in obj) {
+        // skip loop if the property is from prototype
+        if(!obj.hasOwnProperty(prop)) continue;
+
+        // your code
+        alert(prop + " = " + obj[prop]);
+    }
+	*/
+	/*
 	TestAction(message, timestamp){
 		if (this.SanityCheck(message, timestamp) == true){
 			// Check if we have the required stamina
@@ -156,7 +197,109 @@ class GameHandler {
 			}
 		}
 	}
+	*/
+	// ░▒▒▓▓▓████████████████████████████████████████████████████████████████████████████████▓▓▓▒▒░
+	//                                           SKILLS
+	// ░▒▒▓▓▓████████████████████████████████████████████████████████████████████████████████▓▓▓▒▒░
+	/*
+	// Debug
+	TestDebugAction(message, timestamp){
+		if (this.SanityCheck(message, timestamp) == true){
+			// Check if we have the required stamina
+			var hasRequiredStamina = (this.CheckRequiredStamina(message, 1));
+			if (hasRequiredStamina){
+				message.channel.sendMessage("You Spent 1 Energy To Do A Test Action! You Now Have 【"+STATSHANDLER.GetStat(message.author.id, "stamina")+"／"+STATSHANDLER.GetStat(message.author.id, "maxStamina")+"】 Stamina.");
+				SKILLSHANDLER.TestDebug(message, timestamp);
+			}
+			else{
+				message.channel.sendMessage("You do not have enough stamina to perform this action! You need 5 Stamina To Do A Test Action! You Have 【"+STATSHANDLER.GetStat(message.author.id, "stamina")+"／"+STATSHANDLER.GetStat(message.author.id, "maxStamina")+"】 Stamina.");
+			}
+		}
+	}
+	*/
+	// Farming
+	Farm(message, timestamp){
+		if (this.SanityCheck(message, timestamp) == true){
+			// Check if we have the required stamina
+			var hasRequiredStamina = (this.CheckRequiredStamina(message, 1));
+			if (hasRequiredStamina){
+				SKILLSHANDLER.Farm(message,timestamp);
+			}
+			else{
+				message.channel.sendMessage("You do not have enough stamina to perform this action! You need 1 Stamina To Do A Test Action! You Have 【"+STATSHANDLER.GetStat(message.author.id, "stamina")+"／"+STATSHANDLER.GetStat(message.author.id, "maxStamina")+"】 Stamina.");
+			}
+		}
+	}
 	
+	// Fishing
+	Fish(message, timestamp){
+		if (this.SanityCheck(message, timestamp) == true){
+			// Check if we have the required stamina
+			var hasRequiredStamina = (this.CheckRequiredStamina(message, 1));
+			if (hasRequiredStamina){
+				SKILLSHANDLER.Fish(message,timestamp);
+			}
+			else{
+				message.channel.sendMessage("You do not have enough stamina to perform this action! You need 1 Stamina To Do A Test Action! You Have 【"+STATSHANDLER.GetStat(message.author.id, "stamina")+"／"+STATSHANDLER.GetStat(message.author.id, "maxStamina")+"】 Stamina.");
+			}
+		}
+	}
+	
+	// Foraging
+	Forage(message, timestamp){
+		if (this.SanityCheck(message, timestamp) == true){
+			// Check if we have the required stamina
+			var hasRequiredStamina = (this.CheckRequiredStamina(message, 1));
+			if (hasRequiredStamina){
+				SKILLSHANDLER.Forage(message,timestamp);
+			}
+			else{
+				message.channel.sendMessage("You do not have enough stamina to perform this action! You need 1 Stamina To Do A Test Action! You Have 【"+STATSHANDLER.GetStat(message.author.id, "stamina")+"／"+STATSHANDLER.GetStat(message.author.id, "maxStamina")+"】 Stamina.");
+			}
+		}
+	}
+	
+	// Mining
+	Mine(message, timestamp){
+		if (this.SanityCheck(message, timestamp) == true){
+			// Check if we have the required stamina
+			var hasRequiredStamina = (this.CheckRequiredStamina(message, 1));
+			if (hasRequiredStamina){
+				SKILLSHANDLER.Mine(message,timestamp);
+			}
+			else{
+				message.channel.sendMessage("You do not have enough stamina to perform this action! You need 1 Stamina To Do A Test Action! You Have 【"+STATSHANDLER.GetStat(message.author.id, "stamina")+"／"+STATSHANDLER.GetStat(message.author.id, "maxStamina")+"】 Stamina.");
+			}
+		}
+	}
+	
+	// Planting
+	Plant(message, timestamp){
+		if (this.SanityCheck(message, timestamp) == true){
+			// Check if we have the required stamina
+			var hasRequiredStamina = (this.CheckRequiredStamina(message, 1));
+			if (hasRequiredStamina){
+				SKILLSHANDLER.Plant(message,timestamp);
+			}
+			else{
+				message.channel.sendMessage("You do not have enough stamina to perform this action! You need 1 Stamina To Do A Test Action! You Have 【"+STATSHANDLER.GetStat(message.author.id, "stamina")+"／"+STATSHANDLER.GetStat(message.author.id, "maxStamina")+"】 Stamina.");
+			}
+		}
+	}
+	
+	// Woodcutting
+	Chop(message, timestamp){
+		if (this.SanityCheck(message, timestamp) == true){
+			// Check if we have the required stamina
+			var hasRequiredStamina = (this.CheckRequiredStamina(message, 1));
+			if (hasRequiredStamina){
+				SKILLSHANDLER.Chop(message,timestamp);
+			}
+			else{
+				message.channel.sendMessage("You do not have enough stamina to perform this action! You need 1 Stamina To Do A Test Action! You Have 【"+STATSHANDLER.GetStat(message.author.id, "stamina")+"／"+STATSHANDLER.GetStat(message.author.id, "maxStamina")+"】 Stamina.");
+			}
+		}
+	}
 	// Old functions
 	
 	/*

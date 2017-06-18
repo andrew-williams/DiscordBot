@@ -33,7 +33,10 @@ class Main {
 		// Bot Loaded
 		this.client.on('ready', () => {
 			console.log('I am ready!');
-			
+			var presenceData = new Object();
+			presenceData["status"] = "dnd";
+			this.client.user.setPresence(presenceData);
+			this.client.user.setGame('%cmd For Commands');
 			UpdateTimer = setInterval (function (){
 				// Check for saving flag...
 				//console.log('ping ' + GAMEHANDLER.GetTriggerSave());
@@ -56,22 +59,9 @@ class Main {
 				//Test(message);
 				message.channel.sendMessage("Hello World.");
 			}
-			else if (message.content.startsWith(this.globalConfig.prefix + "RefreshConfig")){
-				message.channel.sendMessage("Attempting to refresh configuration.");
-				this.globalConfig = JSON.parse(fs.readFileSync("./Data/GlobalConfig.json", 'utf8'));//require("./Data/GlobalConfig.json");
-				GAMEHANDLER.RefreshConfig(this.globalConfig);
-				message.channel.sendMessage("Refresh configuration successful.");
-			}
-			else if (message.content.startsWith(this.globalConfig.prefix + "GetTime")){
-				//message.channel.sendMessage("Time:"+this.client.uptime);
-				GAMEHANDLER.TestAction(message, this.client.uptime);
-			}	
-			else if (message.content.startsWith(this.globalConfig.prefix + "TestInterval")){
-				message.channel.sendMessage("ID:"+message.author.id + " sent at:"+message.createdTimestamp);
-			}
 			// FINAL COMMANDS
 			// This command will check the player stats.
-			else if (message.content.startsWith(this.globalConfig.prefix + "commands")){
+			else if (message.content.startsWith(this.globalConfig.prefix + "cmd")){
 				GAMEHANDLER.DisplayGameCommands(message);
 			}
 			else if (message.content.startsWith(this.globalConfig.prefix + "newgame")){
@@ -80,6 +70,28 @@ class Main {
 			else if (message.content.startsWith(this.globalConfig.prefix + "stats")){
 				GAMEHANDLER.Stats(message);
 			}
+			else if (message.content.startsWith(this.globalConfig.prefix + "inv")){
+				GAMEHANDLER.Inv(message);
+			}
+			else if (message.content.startsWith(this.globalConfig.prefix + "mine")){
+				GAMEHANDLER.Mine(message, this.client.uptime);
+			}
+			else if (message.content.startsWith(this.globalConfig.prefix + "fish")){
+				GAMEHANDLER.Fish(message, this.client.uptime);
+			}
+			else if (message.content.startsWith(this.globalConfig.prefix + "forage")){
+				GAMEHANDLER.Forage(message, this.client.uptime);
+			}
+			else if (message.content.startsWith(this.globalConfig.prefix + "plant")){
+				GAMEHANDLER.Plant(message, this.client.uptime);
+			}
+			else if (message.content.startsWith(this.globalConfig.prefix + "farm")){
+				GAMEHANDLER.Farm(message, this.client.uptime);
+			}
+			else if (message.content.startsWith(this.globalConfig.prefix + "chop")){
+				GAMEHANDLER.Chop(message, this.client.uptime);
+			}
+				
 		});
 
 		
